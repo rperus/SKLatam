@@ -1,30 +1,43 @@
-# Simulador PowerHub Escolar - Interfaz Streamlit
-# Proyecto: Electrificación Solar de Escuelas Rurales - SKLATAM + Sun King
+# Simulador PowerHub Escolar – Proyecto Cluster Institucional 🇵🇦
+# Electrificación Solar de Escuelas Rurales – SKLATAM + Sun King
 
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 
-# === CONFIGURACIÓN DE USUARIO ===
+# === CONFIGURACIÓN DE PÁGINA ===
 st.set_page_config(page_title="Simulador Solar Escolar", layout="wide")
-st.title("\U0001F31E Simulador PowerHub Escolar")
+st.title("\U0001F31E Simulador de Sistemas Solares para Escuelas Rurales")
 st.markdown("""
-Este simulador permite analizar el desempeño de sistemas solares Sun King para escuelas rurales
-según su ubicación solar (zona), configuración de paneles/baterías y condiciones climáticas.
+Este simulador forma parte del proyecto **Cluster Institucional** de SKLATAM + Sun King,
+para llevar energía renovable y conectividad a **990 escuelas rurales en Panamá**, beneficiando a más de **67,000 estudiantes**.
+
+Selecciona un sistema y una zona solar para visualizar el desempeño durante condiciones normales y tormentas prolongadas.
 """)
+
+with st.expander("ℹ️ Acerca del Proyecto"):
+    st.markdown("""
+    - **Zona 1**: Baja irradiación solar
+    - **Zona 2**: Media irradiación
+    - **Zona 3**: Alta irradiación (85% de las escuelas)
+
+    - **Sistema 1**: 8 paneles solares, 2 baterías – ideal para alta irradiación y escuelas pequeñas
+    - **Sistema 2**: 12 paneles solares, 3 baterías – ideal para escuelas medianas y grandes
+
+    Ambos sistemas incluyen: inversores Sun King, instalación completa, monitoreo remoto, soporte 24/7 y autonomía mínima de 56 horas.
+    """)
 
 # === PARÁMETROS DE ENTRADA ===
 col1, col2, col3 = st.columns(3)
-
 zona = col1.selectbox("Zona Solar", ["zona_1", "zona_2", "zona_3"], index=2)
 sistema = col2.selectbox("Sistema Solar", ["Sistema_1", "Sistema_2"])
 usar_peor_mes = col3.checkbox("Simular Peor Mes (Nov-Dic)?", value=True)
 
-factor_tormenta = st.slider("Factor de Tormenta", min_value=0.1, max_value=1.0, value=1.0, step=0.05)
-simulation_hours = st.slider("Duración de la Simulación (horas)", 24, 240, 120, step=24)
-year = st.number_input("Año de Operación (para degradación)", min_value=0, max_value=10, value=1)
+factor_tormenta = st.slider("\u26c8\ufe0f Intensidad de Tormenta", min_value=0.1, max_value=1.0, value=1.0, step=0.05)
+simulation_hours = st.slider("\u23f1\ufe0f Duración de la Simulación (horas)", 24, 240, 120, step=24)
+year = st.number_input("\U0001F4C5 Año de Operación (para degradación)", min_value=0, max_value=10, value=1)
 
-# === CURVAS DE MARZO POR ZONA ===
+# === CURVAS SOLARES Y PARÁMETROS ===
 curvas_marzo = {
     "zona_1": {"6-7": 0.051, "7-8": 0.468, "8-9": 1.012, "9-10": 1.449, "10-11": 1.757, "11-12": 1.861,
                "12-13": 1.885, "13-14": 1.700, "14-15": 1.311, "15-16": 0.981, "16-17": 0.639, "17-18": 0.269, "18-19": 0.042},
@@ -33,17 +46,13 @@ curvas_marzo = {
     "zona_3": {"6-7": 0.075, "7-8": 0.688, "8-9": 1.487, "9-10": 2.128, "10-11": 2.577, "11-12": 2.728,
                "12-13": 2.765, "13-14": 2.493, "14-15": 1.918, "15-16": 1.435, "16-17": 0.934, "17-18": 0.393, "18-19": 0.062}
 }
-
 pvout_marzo = {"zona_1": 99.09, "zona_2": 116.57, "zona_3": 146.28}
 factor_peor_mes = {"zona_1": 0.773, "zona_2": 0.799, "zona_3": 0.712}
-
-# === CONFIGURACIÓN DE SISTEMAS ===
 sistemas = {
     "Sistema_1": {"solar_panels": 9, "batteries": 2},
     "Sistema_2": {"solar_panels": 12, "batteries": 3}
 }
 
-# === PARÁMETROS FIJOS ===
 panel_power_W = 450
 battery_unit_kWh = 2.56
 inverter_limit_kW = 3.3
@@ -53,7 +62,6 @@ laptops_power_W = 700
 solar_kWp = (sistemas[sistema]["solar_panels"] * panel_power_W) / 1000
 battery_total_kWh = sistemas[sistema]["batteries"] * battery_unit_kWh
 
-# === ESCALADO CURVA HORARIA ===
 base_gen = curvas_marzo[zona]
 total_relativo = sum(base_gen.values())
 pvout_base = pvout_marzo[zona] * (factor_peor_mes[zona] if usar_peor_mes else 1)
@@ -64,7 +72,6 @@ full_day = {f"{h}-{h+1}": 0.0 for h in range(24)}
 full_day.update(curva_horaria_diaria)
 day_template = dict(sorted(full_day.items(), key=lambda x: int(x[0].split("-")[0])))
 
-# === GENERACIÓN HORARIA SIMULADA ===
 storm_start_hour = 24
 solar_generation_input = {}
 for d in range(simulation_hours // 24):
@@ -107,7 +114,6 @@ def simulate_day(kWp, battery_kWh):
 # === SIMULACIÓN ===
 gen, cons, batt, usable, running_hours, failure_hour = simulate_day(solar_kWp, battery_total_kWh)
 
-# === GRÁFICO ===
 st.subheader("\U0001F4CA Resultados de la Simulación")
 df = pd.DataFrame({
     "Hora": list(gen.keys()),
@@ -117,22 +123,21 @@ df = pd.DataFrame({
 })
 
 fig, ax = plt.subplots(figsize=(16, 5))
-ax.plot(df["Hora"], df["Generación Solar (kWh)"], label="Generación Solar", marker='o')
-ax.plot(df["Hora"], df["Consumo (kWh)"], label="Consumo", marker='o')
-ax.plot(df["Hora"], df["Batería (kWh)"], label="Estado Batería", marker='o')
+ax.plot(df["Hora"], df["Generación Solar (kWh)"], label="Generación Solar ☀️", marker='o')
+ax.plot(df["Hora"], df["Consumo (kWh)"], label="Consumo Energía ⚡", marker='o')
+ax.plot(df["Hora"], df["Batería (kWh)"], label="Estado Batería 🔋", marker='o')
 if failure_hour:
-    ax.axvline(x=failure_hour, color='red', linestyle='--', label=f"Falla a la hora {failure_hour}")
+    ax.axvline(x=failure_hour, color='red', linestyle='--', label=f"Falla a la hora {failure_hour} ⚠️")
 ax.set_xticks(range(0, len(df), 3))
 ax.set_xticklabels([df['Hora'][i] for i in range(0, len(df), 3)], rotation=45, fontsize=8)
-ax.set_title("Simulación Solar por Hora")
+ax.set_title("Simulación Horaria de Energía")
 ax.set_ylabel("Energía (kWh)")
 ax.grid(True)
 ax.legend()
 st.pyplot(fig)
 
-# === RESUMEN ===
-st.markdown("""
-**Resumen del Sistema**
+st.markdown(f"""
+### 🧾 Resumen del Sistema
 - Zona Solar: **{zona.upper()}**
 - Sistema: **{sistema}**
 - Capacidad Solar: **{solar_kWp:.2f} kWp**
